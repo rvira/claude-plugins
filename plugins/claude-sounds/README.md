@@ -57,15 +57,40 @@ claude --plugin-dir /path/to/claude-plugins/plugins/claude-sounds
 > `afplay` hooks directly in `~/.claude/settings.json`, remove them once this
 > plugin is installed — otherwise both fire and you hear each sound twice.
 
+## iTerm2: which terminal tab?
+
+CLI sessions running in iTerm2 inherit `ITERM_SESSION_ID`, so:
+
+- The banner also names the spot: `Project: foo • iTerm2 win 1 tab 3`.
+- **Optional auto-focus** — jump straight to that tab. Opt in via env var in
+  `~/.claude/settings.json`:
+
+  ```json
+  { "env": { "CLAUDE_SOUNDS_FOCUS": "permission" } }
+  ```
+
+  `permission` focuses the tab only when Claude is blocked waiting for your
+  approval (recommended); `all` also focuses on completion; unset/`off`
+  disables. First use triggers a one-time macOS Automation prompt
+  ("...wants to control iTerm2") — click Allow.
+
+Terminal.app and VS Code terminals don't set `ITERM_SESSION_ID`; they get the
+project-named banner without the tab label (VS Code windows are covered by
+the claude-chime extension instead).
+
 ## Platform support
 
-- **macOS** — `afplay` system sounds + `osascript` notification.
-- **Linux** — `paplay` freedesktop sounds + `notify-send`; falls back to the terminal bell.
-- **Windows** — via Git Bash: PowerShell `Media.SoundPlayer` with system WAVs (sound only).
+- **macOS** — `afplay` system sounds + Notification Center banner via `osascript`.
+- **Linux** — `paplay` freedesktop sounds + `notify-send` banner; falls back to the terminal bell.
+- **Windows** — via Git Bash: PowerShell system-WAV sound + tray balloon toast in the notification center.
 - **Anything else** — terminal bell (`\a`).
 
 Signal files / project names need `python3` on PATH (present by default on
 macOS and most Linux distros); without it the plugin degrades to sound-only.
+
+> **macOS banner not appearing?** `osascript` posts notifications as
+> "Script Editor" — check System Settings → Notifications → Script Editor is
+> allowed (style "Banners" or "Alerts").
 
 ## Web (claude.ai/code)?
 

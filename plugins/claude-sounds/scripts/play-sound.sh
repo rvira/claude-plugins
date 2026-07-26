@@ -2,17 +2,19 @@
 # Claude Code hook: sound + OS notification naming the project + signal file.
 # Usage: play-sound.sh <stop|permission>   (hook JSON arrives on stdin)
 #
-# The hook's stdin JSON carries `cwd` — the project Claude was working in.
-# That gives "which window/tab finished?" three answers at once:
-#   1. The OS notification names the project folder.
-#   2. A signal file in ~/.claude-code-chime/ lets the claude-chime VS Code
+# Identification layers:
+#   1. OS banner names the project folder (macOS banner, Linux notify-send,
+#      Windows tray toast) — works for CLI, VS Code, and desktop sessions.
+#   2. Signal file in ~/.claude-code-chime/ lets the claude-chime VS Code
 #      extension raise the toast inside the exact window that finished.
-#   3. The sound still plays as before.
+#   3. iTerm2 CLI sessions: the banner also names the window/tab, and can
+#      optionally focus that exact tab (CLAUDE_SOUNDS_FOCUS=permission|all).
 #
-# Security: stdin is size-capped and parsed with a real JSON parser; the
-# project name reaches osascript only as an argv item (never interpolated
-# into AppleScript source); signal files are written atomically under a
-# 0700 directory; the event name is allow-list validated.
+# Security: stdin is size-capped and parsed with a real JSON parser; untrusted
+# text reaches osascript only as argv items and PowerShell only via
+# environment variables (never interpolated into script source); the iTerm2
+# session id is allow-list validated; signal files are written atomically
+# under a 0700 directory; the event name is allow-list validated.
 set -u
 
 case "${1:-}" in
@@ -70,6 +72,27 @@ else
 fi
 body="Project: ${proj:-unknown}"
 
+# --- iTerm2 session identity (present only when the session runs in iTerm2) ---
+# ITERM_SESSION_ID looks like "w0t2p0:UUID": window 0, tab 2, pane 0.
+iterm_uuid=""
+if [ -n "${ITERM_SESSION_ID:-}" ]; then
+  wtp="${ITERM_SESSION_ID%%:*}"
+  uuid="${ITERM_SESSION_ID#*:}"
+  if [[ "$wtp" =~ ^w([0-9]+)t([0-9]+)p([0-9]+)$ ]]; then
+    body="$body • iTerm2 win $((10#${BASH_REMATCH[1]} + 1)) tab $((10#${BASH_REMATCH[2]} + 1))"
+  fi
+  if [[ "$uuid" =~ ^[A-Fa-f0-9-]{8,64}$ ]]; then
+    iterm_uuid="$uuid"
+  fi
+fi
+
+# Focus the exact iTerm2 tab? Opt-in: CLAUDE_SOUNDS_FOCUS=permission|all
+should_focus=0
+case "${CLAUDE_SOUNDS_FOCUS:-off}" in
+  all) should_focus=1 ;;
+  permission) [ "$event" = "permission" ] && should_focus=1 ;;
+esac
+
 # --- OS notification + sound, per platform ---
 case "$(uname -s)" in
   Darwin)
@@ -79,6 +102,27 @@ case "$(uname -s)" in
       -e 'display notification (item 1 of argv) with title (item 2 of argv)' \
       -e 'end run' \
       "$body" "$title" >/dev/null 2>&1 &
+
+    if [ "$should_focus" = 1 ] && [ -n "$iterm_uuid" ]; then
+      osascript -e 'on run argv
+        tell application "iTerm2"
+          repeat with w in windows
+            repeat with t in tabs of w
+              repeat with s in sessions of t
+                if id of s is (item 1 of argv) then
+                  set index of w to 1
+                  select t
+                  select s
+                  activate
+                  return
+                end if
+              end repeat
+            end repeat
+          end repeat
+        end tell
+      end run' "$iterm_uuid" >/dev/null 2>&1 &
+    fi
+
     if [ "$event" = "permission" ]; then
       sound="/System/Library/Sounds/Purr.aiff"
     else
@@ -101,11 +145,25 @@ case "$(uname -s)" in
     ;;
   MINGW*|MSYS*|CYGWIN*)
     if [ "$event" = "permission" ]; then
-      ps_cmd='(New-Object Media.SoundPlayer "C:\Windows\Media\Windows Notify.wav").PlaySync()'
+      wav='C:\Windows\Media\Windows Notify.wav'
     else
-      ps_cmd='(New-Object Media.SoundPlayer "C:\Windows\Media\Windows Ding.wav").PlaySync()'
+      wav='C:\Windows\Media\Windows Ding.wav'
     fi
-    exec powershell.exe -NoProfile -NonInteractive -Command "$ps_cmd"
+    # Untrusted text (project name) crosses into PowerShell via environment
+    # variables only — the -Command string below is a fixed literal.
+    CLAUDE_NOTIFY_TITLE="$title" CLAUDE_NOTIFY_BODY="$body" CLAUDE_NOTIFY_WAV="$wav" \
+    exec powershell.exe -NoProfile -NonInteractive -Command '
+      Add-Type -AssemblyName System.Windows.Forms, System.Drawing;
+      $n = New-Object System.Windows.Forms.NotifyIcon;
+      $n.Icon = [System.Drawing.SystemIcons]::Information;
+      $n.Visible = $true;
+      $n.BalloonTipTitle = $env:CLAUDE_NOTIFY_TITLE;
+      $n.BalloonTipText = $env:CLAUDE_NOTIFY_BODY;
+      $n.ShowBalloonTip(5000);
+      (New-Object System.Media.SoundPlayer $env:CLAUDE_NOTIFY_WAV).PlaySync();
+      Start-Sleep -Seconds 5;
+      $n.Dispose()
+    '
     ;;
 esac
 
