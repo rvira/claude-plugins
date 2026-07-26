@@ -183,7 +183,7 @@ is waiting for permission, labeled with the workspace name.
 Install the packaged extension locally:
 
 ```bash
-code --install-extension vscode/claude-chime/claude-chime-0.3.1.vsix
+code --install-extension vscode/claude-chime/claude-chime-0.3.2.vsix
 ```
 
 On first activation (macOS) it checks for `terminal-notifier` and offers a
