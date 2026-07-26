@@ -86,8 +86,13 @@ Sound **and** project-named OS notification for Claude Code:
 
 | Event | When it fires | Sound (macOS) | Notification |
 |---|---|---|---|
-| `Stop` | Claude finishes a turn | Funk | "Claude finished responding — Project: \<folder\>" |
-| `PermissionRequest` | Claude is waiting for your approval | Purr | "Claude needs permission — Project: \<folder\>" |
+| `Stop` | Claude finishes a turn | Funk | "Claude finished responding — Project: \<folder\>" + the **prompt it answered** (read from the session transcript) |
+| `PermissionRequest` | Claude is waiting for your approval | Purr | "Claude needs permission — Project: \<folder\>" + the **tool/command requested** (e.g. `Bash: npm install`) |
+
+The same detail is written into the signal file, so the Claude Chime VS Code
+toast also says what completed. Privacy note: prompt snippets (max 140 chars)
+appear in OS notifications and in `~/.claude-code-chime/` signal files
+(owner-only permissions, auto-pruned after an hour).
 
 Because Claude Code's CLI, VS Code extension, and desktop app all run the same
 local engine and load the same plugins, installing this once enables it in
@@ -177,7 +182,7 @@ is waiting for permission, labeled with the workspace name.
 Install the packaged extension locally:
 
 ```bash
-code --install-extension vscode/claude-chime/claude-chime-0.2.0.vsix
+code --install-extension vscode/claude-chime/claude-chime-0.3.0.vsix
 ```
 
 On first activation (macOS) it checks for `terminal-notifier` and offers a

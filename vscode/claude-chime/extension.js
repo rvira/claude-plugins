@@ -83,8 +83,17 @@ function handleSignal(file) {
     // A duplicate window on the same folder consumed it first; still notify.
   }
 
+  // detail = last user prompt / requested tool, written by the hook script.
+  // Untrusted text: control chars stripped, length capped; rendered only as
+  // plain notification text.
+  let detail = "";
+  if (typeof signal.detail === "string") {
+    detail = signal.detail.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 140);
+  }
+
   vscode.window.showInformationMessage(
-    `Claude ${EVENT_TEXT[signal.event]} — ${folder.name}`
+    `Claude ${EVENT_TEXT[signal.event]} — ${folder.name}` +
+      (detail ? `: “${detail}”` : "")
   );
 }
 
