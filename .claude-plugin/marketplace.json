@@ -1,0 +1,14 @@
+{
+  "name": "rishabh-plugins",
+  "description": "Rishabh's local Claude Code plugins.",
+  "owner": {
+    "name": "Rishabh"
+  },
+  "plugins": [
+    {
+      "name": "claude-sounds",
+      "source": "./plugins/claude-sounds",
+      "description": "Plays a sound when Claude finishes a turn and when a permission prompt appears."
+    }
+  ]
+}

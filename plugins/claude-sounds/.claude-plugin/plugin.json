@@ -1,0 +1,10 @@
+{
+  "name": "claude-sounds",
+  "version": "0.2.0",
+  "description": "Sound + OS notification naming the project when Claude finishes a turn (Stop) or a permission prompt appears (PermissionRequest). Also emits signal files that the claude-chime VS Code extension uses to raise the toast in the exact window that finished. macOS, Linux, Windows (Git Bash).",
+  "author": {
+    "name": "Rishabh"
+  },
+  "homepage": "https://github.com/rvira/claude-plugins",
+  "repository": "https://github.com/rvira/claude-plugins"
+}
