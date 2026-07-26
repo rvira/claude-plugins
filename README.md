@@ -160,10 +160,11 @@ post as "Script Editor" — macOS offers no click action there, so clicking
 just opens Script Editor. That's a platform limitation of `display
 notification`, not a bug.
 
-> **macOS banner troubleshooting:** whichever notifier is active must be
-> allowed in System Settings → Notifications ("terminal-notifier" with
-> terminal-notifier installed, otherwise "Script Editor"), style "Banners"
-> or "Alerts".
+> **Banners not showing, not clickable, or silent after installing
+> terminal-notifier?** See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — a
+> symptom → diagnosis → fix guide for macOS, Linux, and Windows, including
+> the exact debugging path for the "terminal-notifier silently swallows all
+> banners" permission trap.
 
 ## Customizing sounds
 
