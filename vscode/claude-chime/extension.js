@@ -30,6 +30,11 @@ function activate(context) {
     return;
   }
 
+  // VS Code extensions cannot run install scripts at download time (the
+  // Marketplace forbids it), so optional native dependencies are offered
+  // here, once, at activation. The install command is a fixed literal.
+  checkDependencies(context);
+
   let watcher;
   try {
     watcher = fs.watch(SIGNAL_DIR, (_eventType, filename) => {
@@ -89,6 +94,39 @@ function matchWorkspace(cwd) {
     const rel = path.relative(folder.uri.fsPath, cwd);
     return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
   });
+}
+
+async function checkDependencies(context) {
+  if (process.platform !== "darwin") return;
+  if (context.globalState.get("claudeChime.depPromptDismissed")) return;
+
+  const candidates = [
+    "/opt/homebrew/bin/terminal-notifier",
+    "/usr/local/bin/terminal-notifier",
+  ];
+  const installed = candidates.some((p) => {
+    try {
+      fs.accessSync(p, fs.constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (installed) return;
+
+  const choice = await vscode.window.showInformationMessage(
+    "Claude Chime: install terminal-notifier so macOS banners become " +
+      "clickable (a click focuses the window Claude finished in).",
+    "Install with Homebrew",
+    "Don't ask again"
+  );
+  if (choice === "Install with Homebrew") {
+    const term = vscode.window.createTerminal("Claude Chime setup");
+    term.show();
+    term.sendText("brew install terminal-notifier", true);
+  } else if (choice === "Don't ask again") {
+    await context.globalState.update("claudeChime.depPromptDismissed", true);
+  }
 }
 
 function deactivate() {}

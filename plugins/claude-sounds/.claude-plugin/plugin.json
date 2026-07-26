@@ -1,6 +1,6 @@
 {
   "name": "claude-sounds",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Sound + OS banner naming the project when Claude finishes a turn (Stop) or a permission prompt appears (PermissionRequest) — macOS banner, Linux notify-send, Windows tray toast. iTerm2 sessions get window/tab identification and optional auto-focus. Also emits signal files for the claude-chime VS Code extension.",
   "author": {
     "name": "Rishabh"
