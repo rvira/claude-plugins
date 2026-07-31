@@ -2,7 +2,7 @@
   "name": "claude-chime",
   "displayName": "Claude Chime",
   "description": "Shows a notification inside the exact VS Code window whose Claude Code session finished or needs permission. Companion to the claude-sounds Claude Code plugin.",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "publisher": "rishabh-vira",
   "icon": "icon.png",
   "license": "MIT",
