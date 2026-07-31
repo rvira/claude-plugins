@@ -2,7 +2,7 @@
   "name": "claude-chime",
   "displayName": "Claude Chime",
   "description": "Shows a notification inside the exact VS Code window whose Claude Code session finished or needs permission. Companion to the claude-sounds Claude Code plugin.",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "publisher": "rishabh-vira",
   "icon": "icon.png",
   "license": "MIT",
@@ -27,6 +27,18 @@
   ],
   "main": "./extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "claudeChime.testNotification",
+        "title": "Test Notification",
+        "category": "Claude Chime"
+      },
+      {
+        "command": "claudeChime.toggle",
+        "title": "Toggle Notifications (This Window)",
+        "category": "Claude Chime"
+      }
+    ],
     "configuration": {
       "title": "Claude Chime",
       "properties": {
@@ -34,8 +46,64 @@
           "type": "boolean",
           "default": true,
           "description": "Show a notification in this window when its Claude Code session finishes or needs permission."
+        },
+        "claudeChime.notifyOn": {
+          "type": "string",
+          "enum": [
+            "both",
+            "stop",
+            "permission"
+          ],
+          "enumDescriptions": [
+            "Notify when Claude finishes responding and when it needs permission",
+            "Only when Claude finishes responding",
+            "Only when Claude is waiting for permission"
+          ],
+          "default": "both",
+          "description": "Which Claude Code events raise a notification."
+        },
+        "claudeChime.showPromptText": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include the answered prompt / requested command in the notification. Turn off to show only the project name (useful when screen-sharing)."
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "claudeChime.gettingStarted",
+        "title": "Get started with Claude Chime",
+        "description": "Sounds, project-named banners, and per-window toasts for Claude Code.",
+        "steps": [
+          {
+            "id": "installPlugin",
+            "title": "Install the claude-sounds plugin",
+            "description": "Claude Chime displays signals emitted by the claude-sounds Claude Code plugin — install it once and restart open sessions.",
+            "media": {
+              "markdown": "media/walkthrough/install-plugin.md"
+            }
+          },
+          {
+            "id": "clickableBanners",
+            "title": "Optional: clickable macOS banners",
+            "description": "Install terminal-notifier and allow it in System Settings so OS banners focus the right window when clicked.",
+            "media": {
+              "markdown": "media/walkthrough/clickable-banners.md"
+            }
+          },
+          {
+            "id": "testNotification",
+            "title": "Fire a test notification",
+            "description": "Verify the pipeline end to end — watcher, window matching, and toast.\n[Test Notification](command:claudeChime.testNotification)",
+            "media": {
+              "markdown": "media/walkthrough/test.md"
+            },
+            "completionEvents": [
+              "onCommand:claudeChime.testNotification"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

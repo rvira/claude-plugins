@@ -118,7 +118,7 @@ claude --plugin-dir /path/to/claude-plugins/plugins/claude-sounds
 Gives you the per-window toast. Install the packaged `.vsix`:
 
 ```bash
-code --install-extension vscode/claude-chime/claude-chime-0.3.4.vsix
+code --install-extension vscode/claude-chime/claude-chime-0.4.0.vsix
 ```
 
 (If `code` isn't found: in VS Code, Cmd/Ctrl+Shift+P → **"Shell Command:
@@ -282,11 +282,18 @@ activation-time prompt is the sanctioned way to set up native dependencies.
 The `claude-sounds` plugin must be installed (it writes the signal files) —
 see [Installation](#installation) above.
 
-## Settings
+## Commands & settings
+
+Command Palette: **Claude Chime: Test Notification** (fires a real signal
+through the full pipeline) and **Claude Chime: Toggle Notifications (This
+Window)** (per-window mute). A **Get Started walkthrough** (Help → Get
+Started) covers the plugin install, macOS clickable banners, and a live test.
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `claudeChime.enabled` | `true` | Show notifications in this window. |
+| `claudeChime.notifyOn` | `both` | Which events notify: `both`, `stop`, or `permission`. |
+| `claudeChime.showPromptText` | `true` | Include the answered prompt / requested command; off = project name only (privacy). |
 
 Signal files are written by a bash hook script — macOS and Linux out of the
 box, Windows via Git Bash (requires `python3` on PATH for signal writing).

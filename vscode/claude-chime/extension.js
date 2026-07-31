@@ -23,7 +23,24 @@ const EVENT_TEXT = {
   permission: "needs permission",
 };
 
+let muted = false; // per-window mute, flipped by claudeChime.toggle
+
 function activate(context) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand("claudeChime.toggle", () => {
+      muted = !muted;
+      vscode.window.setStatusBarMessage(
+        muted
+          ? "Claude Chime: muted in this window"
+          : "Claude Chime: notifications on",
+        3000
+      );
+    }),
+    vscode.commands.registerCommand("claudeChime.testNotification", () =>
+      sendTestSignal()
+    )
+  );
+
   try {
     fs.mkdirSync(SIGNAL_DIR, { recursive: true, mode: 0o700 });
   } catch {
@@ -48,9 +65,40 @@ function activate(context) {
   context.subscriptions.push({ dispose: () => watcher.close() });
 }
 
+// Writes a real signal file for this window's workspace folder, exercising
+// the same watcher -> matching -> toast pipeline live events use. Content is
+// a fixed literal; only the folder path (trusted workspace state) varies.
+function sendTestSignal() {
+  const folder = (vscode.workspace.workspaceFolders || [])[0];
+  if (!folder) {
+    vscode.window.showInformationMessage(
+      "Claude Chime test: open a folder in this window first — matching is per workspace folder."
+    );
+    return;
+  }
+  const signal = {
+    event: "stop",
+    cwd: folder.uri.fsPath,
+    detail: "Test notification — Claude Chime is working",
+    ts: Date.now() / 1000,
+  };
+  try {
+    fs.writeFileSync(
+      path.join(SIGNAL_DIR, `signal-test-${Date.now()}.json`),
+      JSON.stringify(signal)
+    );
+  } catch (err) {
+    vscode.window.showWarningMessage(
+      `Claude Chime: could not write the test signal (${
+        err && err.message ? err.message : "unknown error"
+      })`
+    );
+  }
+}
+
 function handleSignal(file) {
   const config = vscode.workspace.getConfiguration("claudeChime");
-  if (!config.get("enabled", true)) return;
+  if (!config.get("enabled", true) || muted) return;
 
   let raw;
   try {
@@ -74,6 +122,9 @@ function handleSignal(file) {
     return;
   }
 
+  const notifyOn = config.get("notifyOn", "both");
+  if (notifyOn !== "both" && notifyOn !== signal.event) return;
+
   const folder = matchWorkspace(signal.cwd);
   if (!folder) return; // some other window's session
 
@@ -87,7 +138,7 @@ function handleSignal(file) {
   // Untrusted text: control chars stripped, length capped; rendered only as
   // plain notification text.
   let detail = "";
-  if (typeof signal.detail === "string") {
+  if (config.get("showPromptText", true) && typeof signal.detail === "string") {
     detail = signal.detail.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 140);
   }
 

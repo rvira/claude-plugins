@@ -31,11 +31,23 @@ claude plugin install claude-sounds@rishabh-plugins
 Full setup, per-OS options, and troubleshooting:
 [github.com/rvira/claude-plugins](https://github.com/rvira/claude-plugins).
 
+## Commands
+
+| Command | What it does |
+|---|---|
+| `Claude Chime: Test Notification` | Writes a real signal for this window's workspace — verifies the whole watcher → matching → toast pipeline. |
+| `Claude Chime: Toggle Notifications (This Window)` | Per-window mute/unmute (great for demos and screen-shares). |
+
+A **Get Started walkthrough** (Help → Get Started → Claude Chime) walks
+through the plugin install, the macOS clickable-banner setup, and a live test.
+
 ## Settings
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `claudeChime.enabled` | `true` | Show notifications in this window. |
+| `claudeChime.notifyOn` | `both` | Which events notify: `both`, `stop` (finished only), or `permission` (approvals only). |
+| `claudeChime.showPromptText` | `true` | Include the answered prompt / requested command; turn off to show only the project name (privacy). |
 
 ## How it works
 
