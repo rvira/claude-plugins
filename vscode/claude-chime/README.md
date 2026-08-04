@@ -14,6 +14,8 @@ what it was about:
   session notifies; the rest stay silent.
 - Says what happened: shows the prompt Claude answered, or the tool/command
   it wants permission for.
+- Gets out of the way: the toast auto-dismisses after 8 seconds
+  (`claudeChime.autoDismissSeconds`; set `0` to keep it until dismissed).
 - Offers optional native dependencies at first activation (macOS:
   `terminal-notifier` for clickable OS banners) — one click, or "Don't ask
   again".
@@ -48,6 +50,7 @@ through the plugin install, the macOS clickable-banner setup, and a live test.
 | `claudeChime.enabled` | `true` | Show notifications in this window. |
 | `claudeChime.notifyOn` | `both` | Which events notify: `both`, `stop` (finished only), or `permission` (approvals only). |
 | `claudeChime.showPromptText` | `true` | Include the answered prompt / requested command; turn off to show only the project name (privacy). |
+| `claudeChime.autoDismissSeconds` | `8` | Auto-close the toast after this many seconds; `0` keeps it on screen until you dismiss it. |
 
 ## How it works
 

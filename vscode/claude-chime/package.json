@@ -2,7 +2,7 @@
   "name": "claude-chime",
   "displayName": "Claude Chime",
   "description": "Shows a notification inside the exact VS Code window whose Claude Code session finished or needs permission. Companion to the claude-sounds Claude Code plugin.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "rishabh-vira",
   "icon": "icon.png",
   "license": "MIT",
@@ -66,6 +66,13 @@
           "type": "boolean",
           "default": true,
           "description": "Include the answered prompt / requested command in the notification. Turn off to show only the project name (useful when screen-sharing)."
+        },
+        "claudeChime.autoDismissSeconds": {
+          "type": "number",
+          "default": 8,
+          "minimum": 0,
+          "maximum": 300,
+          "description": "Close the notification automatically after this many seconds. Set to 0 to keep it on screen until you dismiss it."
         }
       }
     },

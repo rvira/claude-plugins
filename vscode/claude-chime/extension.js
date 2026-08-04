@@ -1,15 +1,7 @@
-// Claude Chime — answers "which VS Code window finished?".
-//
-// The claude-sounds Claude Code plugin writes a signal file to
-// ~/.claude-code-chime/ on every Stop / PermissionRequest event, containing
-// the session's cwd. Every VS Code window runs its own instance of this
-// extension; each instance reacts only to signals whose cwd falls inside
-// one of ITS workspace folders — so the toast appears in the exact window
-// whose Claude session fired, no matter how many windows are open.
-//
-// Signal files are untrusted input: size-capped, JSON-parsed defensively,
-// event names allow-listed, and cwd matched with a proper path-containment
-// check (no string-prefix tricks).
+// Claude Chime — raises the toast in the exact VS Code window whose Claude
+// Code session fired, driven by signal files from the claude-sounds plugin.
+// Signal files are untrusted input: size-capped, parsed defensively,
+// allow-listed, and matched with a path-containment check.
 
 const vscode = require("vscode");
 const fs = require("fs");
@@ -23,7 +15,7 @@ const EVENT_TEXT = {
   permission: "needs permission",
 };
 
-let muted = false; // per-window mute, flipped by claudeChime.toggle
+let muted = false;
 
 function activate(context) {
   context.subscriptions.push(
@@ -47,9 +39,8 @@ function activate(context) {
     return;
   }
 
-  // VS Code extensions cannot run install scripts at download time (the
-  // Marketplace forbids it), so optional native dependencies are offered
-  // here, once, at activation. The install command is a fixed literal.
+  // The Marketplace forbids install-time scripts, so optional native
+  // dependencies are offered once, at activation.
   checkDependencies(context);
 
   let watcher;
@@ -65,9 +56,7 @@ function activate(context) {
   context.subscriptions.push({ dispose: () => watcher.close() });
 }
 
-// Writes a real signal file for this window's workspace folder, exercising
-// the same watcher -> matching -> toast pipeline live events use. Content is
-// a fixed literal; only the folder path (trusted workspace state) varies.
+// Exercises the same watcher -> matching -> toast pipeline live events use.
 function sendTestSignal() {
   const folder = (vscode.workspace.workspaceFolders || [])[0];
   if (!folder) {
@@ -134,17 +123,33 @@ function handleSignal(file) {
     // A duplicate window on the same folder consumed it first; still notify.
   }
 
-  // detail = last user prompt / requested tool, written by the hook script.
-  // Untrusted text: control chars stripped, length capped; rendered only as
-  // plain notification text.
+  // Untrusted text from the hook: control chars stripped, length capped.
   let detail = "";
   if (config.get("showPromptText", true) && typeof signal.detail === "string") {
     detail = signal.detail.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 140);
   }
 
-  vscode.window.showInformationMessage(
+  showToast(
+    config,
     `Claude ${EVENT_TEXT[signal.event]} — ${folder.name}` +
       (detail ? `: “${detail}”` : "")
+  );
+}
+
+// showInformationMessage toasts are sticky, so auto-dismiss is done via a
+// progress notification that resolves after autoDismissSeconds (0 = sticky).
+function showToast(config, message) {
+  let dismiss = Number(config.get("autoDismissSeconds", 8));
+  if (!Number.isFinite(dismiss) || dismiss < 0) dismiss = 8;
+  dismiss = Math.min(Math.floor(dismiss), 300);
+
+  if (dismiss === 0) {
+    vscode.window.showInformationMessage(message);
+    return;
+  }
+  vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: message },
+    () => new Promise((resolve) => setTimeout(resolve, dismiss * 1000))
   );
 }
 

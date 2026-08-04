@@ -2,23 +2,10 @@
 # Claude Code hook: sound + OS notification naming the project + what ran.
 # Usage: play-sound.sh <stop|permission>   (hook JSON arrives on stdin)
 #
-# Identification layers:
-#   1. OS banner names the project folder AND shows what this was about:
-#      the last user prompt (read from the session transcript) on Stop, or
-#      the tool being requested on PermissionRequest.
-#   2. Signal file in ~/.claude-code-chime/ (with the same detail) lets the
-#      claude-chime VS Code extension raise the toast inside the exact
-#      window that finished.
-#   3. iTerm2 CLI sessions: banner names the window/tab; optional focus
-#      (CLAUDE_SOUNDS_FOCUS=permission|all). Clicking a terminal-notifier
-#      banner focuses the project's VS Code window / iTerm2.
-#
-# Security: stdin is size-capped and parsed with a real JSON parser; the
-# transcript is read tail-only (256 KB) and parsed line-defensively; all
-# untrusted text is control-char-stripped and length-capped, and reaches
-# osascript/terminal-notifier only as argv items and PowerShell only via
-# environment variables — never interpolated into script source. The iTerm2
-# session id and the click-action path (base64) are allow-list validated.
+# Security contract: all untrusted input (hook payload, transcript text,
+# env vars) is size-capped, allow-list validated, and crosses into
+# osascript/terminal-notifier/PowerShell only as data (argv or env vars) —
+# never interpolated into script source.
 set -u
 
 case "${1:-}" in
@@ -26,7 +13,7 @@ case "${1:-}" in
   *) event="stop" ;;
 esac
 
-# --- Read hook payload (size-capped; skipped when run manually from a TTY) ---
+# Payload read is skipped on a TTY so the script can be run by hand.
 payload=""
 if [ ! -t 0 ]; then
   payload="$(head -c 16384 2>/dev/null || true)"
@@ -34,7 +21,6 @@ fi
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
-# --- Project name, prompt/tool snippet, signal file (python3 required) ------
 proj=""
 cwd_b64=""
 snippet=""
@@ -45,7 +31,7 @@ import base64, json, os, sys, tempfile, time
 event = sys.argv[1]
 
 def clean(text, limit=140):
-    text = " ".join(str(text).split())          # collapse whitespace/newlines
+    text = " ".join(str(text).split())
     text = "".join(ch if ch.isprintable() else " " for ch in text)
     text = text.lstrip("-[ ")                    # terminal-notifier option quirk
     return (text[: limit - 1] + "\u2026") if len(text) > limit else text
@@ -139,7 +125,6 @@ else
 fi
 body="Project: ${proj:-unknown}"
 
-# --- iTerm2 session identity (present only when the session runs in iTerm2) ---
 # ITERM_SESSION_ID looks like "w0t2p0:UUID": window 0, tab 2, pane 0.
 iterm_uuid=""
 if [ -n "${ITERM_SESSION_ID:-}" ]; then
@@ -153,29 +138,33 @@ if [ -n "${ITERM_SESSION_ID:-}" ]; then
   fi
 fi
 
-# Focus the exact iTerm2 tab? Opt-in: CLAUDE_SOUNDS_FOCUS=permission|all
 should_focus=0
 case "${CLAUDE_SOUNDS_FOCUS:-off}" in
   all) should_focus=1 ;;
   permission) [ "$event" = "permission" ] && should_focus=1 ;;
 esac
 
-# --- OS notification + sound, per platform ---
+# Banner auto-dismiss after N seconds; 0 = leave it up. Untrusted env var —
+# validated to a short integer before reaching sleep/PowerShell.
+dismiss_secs="${CLAUDE_SOUNDS_DISMISS_SECS:-8}"
+[[ "$dismiss_secs" =~ ^[0-9]{1,3}$ ]] || dismiss_secs=8
+
 case "$(uname -s)" in
   Darwin)
-    # Prefer terminal-notifier: its banners support a real click action
-    # (focus the right app/window). osascript banners can only activate
-    # Script Editor on click — kept as fallback only.
+    # terminal-notifier preferred: it supports a real click action and can be
+    # removed programmatically; osascript is fallback only.
     tn=""
     for cand in terminal-notifier /opt/homebrew/bin/terminal-notifier /usr/local/bin/terminal-notifier; do
       if command -v "$cand" >/dev/null 2>&1; then tn="$cand"; break; fi
     done
 
     if [ -n "$tn" ]; then
+      # Unique group id so the timed removal only pulls down this banner.
+      tn_group="claude-sounds-$$-${RANDOM}"
       if [ -n "$snippet" ]; then
-        tn_args=(-title "$title" -subtitle "$body" -message "$snippet")
+        tn_args=(-group "$tn_group" -title "$title" -subtitle "$body" -message "$snippet")
       else
-        tn_args=(-title "$title" -message "$body")
+        tn_args=(-group "$tn_group" -title "$title" -message "$body")
       fi
       if [ -n "${ITERM_SESSION_ID:-}" ]; then
         tn_args+=(-activate com.googlecode.iterm2)
@@ -185,8 +174,13 @@ case "$(uname -s)" in
         tn_args+=(-execute "'$script_dir/focus-vscode.sh' $cwd_b64")
       fi
       "$tn" "${tn_args[@]}" >/dev/null 2>&1 &
+      if [ "$dismiss_secs" -gt 0 ]; then
+        # "Alerts"-style notifications stay on screen until removed.
+        ( sleep "$dismiss_secs" && "$tn" -remove "$tn_group" ) >/dev/null 2>&1 &
+      fi
     else
-      # argv-based AppleScript: values are data, never script source
+      # No programmatic removal here: osascript banners follow the user's
+      # Script Editor notification style. Values are argv data, never source.
       osascript \
         -e 'on run argv' \
         -e 'display notification (item 1 of argv) with title (item 2 of argv) subtitle (item 3 of argv)' \
@@ -226,9 +220,8 @@ case "$(uname -s)" in
       nbody="$body"
       [ -n "$snippet" ] && nbody="$body"$'\n'"$snippet"
       if [ -n "$cwd_b64" ] && notify-send --help 2>&1 | grep -q -- '--action'; then
-        # --action (libnotify >= 0.7.10) makes notify-send wait and print the
-        # chosen action, so it runs in a background subshell; clicking focuses
-        # the project window via the "code" CLI (focus-vscode.sh handles Linux).
+        # --action makes notify-send block until clicked/expired, so it runs
+        # in a background subshell.
         (
           choice="$(notify-send --action=default=Focus "$title" "$nbody" 2>/dev/null)"
           if [ "$choice" = "default" ]; then
@@ -254,13 +247,13 @@ case "$(uname -s)" in
     else
       wav='C:\Windows\Media\Windows Ding.wav'
     fi
-    # Untrusted data (hook payload, snippet) crosses into PowerShell via
-    # environment variables only — the -Command string below is a fixed
-    # literal. The payload is parsed with ConvertFrom-Json inside PowerShell,
-    # so Windows needs no python3. Clicking the toast focuses the project
-    # window via the "code" CLI when available.
-    CLAUDE_NOTIFY_TITLE="$title" CLAUDE_NOTIFY_PAYLOAD="$payload" CLAUDE_NOTIFY_SNIPPET="$snippet" CLAUDE_NOTIFY_WAV="$wav" \
+    # Untrusted data crosses into PowerShell via env vars only — the -Command
+    # string is a fixed literal. Payload is parsed in PowerShell (no python3
+    # needed on Windows).
+    CLAUDE_NOTIFY_TITLE="$title" CLAUDE_NOTIFY_PAYLOAD="$payload" CLAUDE_NOTIFY_SNIPPET="$snippet" CLAUDE_NOTIFY_WAV="$wav" CLAUDE_NOTIFY_DISMISS="$dismiss_secs" \
     exec powershell.exe -NoProfile -NonInteractive -Command '
+      $dismiss = 8;
+      try { $v = [int]$env:CLAUDE_NOTIFY_DISMISS; if ($v -ge 1 -and $v -le 300) { $dismiss = $v } } catch {}
       $dir = "";
       try { $p = $env:CLAUDE_NOTIFY_PAYLOAD | ConvertFrom-Json; if ($p.cwd -is [string]) { $dir = $p.cwd } } catch {}
       $proj = "unknown";
@@ -279,13 +272,13 @@ case "$(uname -s)" in
           Start-Process -FilePath "code" -ArgumentList ([char]34 + $event.MessageData + [char]34)
         } | Out-Null
       }
-      $n.ShowBalloonTip(5000);
+      $n.ShowBalloonTip($dismiss * 1000);
       (New-Object System.Media.SoundPlayer $env:CLAUDE_NOTIFY_WAV).PlaySync();
-      Start-Sleep -Seconds 6;
+      Start-Sleep -Seconds $dismiss;
+      # Dispose clears the toast from the screen and the Action Center.
       $n.Dispose()
     '
     ;;
 esac
 
-# Fallback: terminal bell
 printf '\a'

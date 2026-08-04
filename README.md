@@ -19,6 +19,9 @@ know **that** Claude finished, **where** it finished, and **what** it finished
   the others stay silent.
 - 🖱️ **Clickable banners** — click to focus the VS Code window (or iTerm2)
   for that project (per-OS requirements below).
+- ⏳ **Banners that get out of the way** — macOS banners, Windows toasts, and
+  VS Code toasts all auto-dismiss after 8 s (configurable:
+  `CLAUDE_SOUNDS_DISMISS_SECS` / `claudeChime.autoDismissSeconds`).
 - 🧭 **iTerm2 tab identification + auto-focus** — CLI sessions get
   *"iTerm2 win 1 tab 3"* in the banner, and can auto-focus that exact tab
   when Claude needs permission.
@@ -118,7 +121,7 @@ claude --plugin-dir /path/to/claude-plugins/plugins/claude-sounds
 Gives you the per-window toast. Install the packaged `.vsix`:
 
 ```bash
-code --install-extension vscode/claude-chime/claude-chime-0.4.0.vsix
+code --install-extension vscode/claude-chime/claude-chime-0.5.0.vsix
 ```
 
 (If `code` isn't found: in VS Code, Cmd/Ctrl+Shift+P → **"Shell Command:
@@ -134,6 +137,7 @@ One install covers every window — each window runs its own instance.
 | Click-to-focus | Linux / Windows | `code` on PATH | Linux: the VS Code "Install 'code' command" step above. Windows: the installer's "Add to PATH" checkbox (verify with `where code`). |
 | Prompt snippets in the Windows toast | Windows | [Python 3](https://www.python.org/downloads/windows/) with "Add python.exe to PATH" checked | Without it the toast still shows the project name (parsed in PowerShell) — just not the prompt text. |
 | iTerm2 auto-focus | macOS | Nothing to install — add to `~/.claude/settings.json`: `{ "env": { "CLAUDE_SOUNDS_FOCUS": "permission" } }` | `permission` (recommended) focuses the tab only when Claude is blocked; `all` also on completion. First use: allow the macOS Automation prompt ("…wants to control iTerm2"). |
+| Banner auto-dismiss timing | macOS / Windows | Nothing to install — add to `~/.claude/settings.json`: `{ "env": { "CLAUDE_SOUNDS_DISMISS_SECS": "8" } }` | Seconds before the OS banner/toast vanishes on its own (default 8). `0` = leave it up (macOS only — Windows toasts always end with the notifying process). VS Code toasts have their own setting: `claudeChime.autoDismissSeconds`. |
 
 No optional dependency is required — missing pieces degrade gracefully
 (plain banner instead of clickable, project name instead of prompt text,
@@ -235,7 +239,11 @@ parsed inside PowerShell).
 Without terminal-notifier, macOS falls back to `osascript`, whose banners
 post as "Script Editor" — macOS offers no click action there, so clicking
 just opens Script Editor. That's a platform limitation of `display
-notification`, not a bug.
+notification`, not a bug. Auto-dismiss is also limited on this fallback:
+`osascript` banners can't be removed programmatically, so they follow the
+Script Editor notification style (Banners auto-hide, Alerts stay). With
+terminal-notifier the plugin removes the banner itself after
+`CLAUDE_SOUNDS_DISMISS_SECS` regardless of style.
 
 > **Banners not showing, not clickable, or silent after installing
 > terminal-notifier?** See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — a
@@ -294,6 +302,7 @@ Started) covers the plugin install, macOS clickable banners, and a live test.
 | `claudeChime.enabled` | `true` | Show notifications in this window. |
 | `claudeChime.notifyOn` | `both` | Which events notify: `both`, `stop`, or `permission`. |
 | `claudeChime.showPromptText` | `true` | Include the answered prompt / requested command; off = project name only (privacy). |
+| `claudeChime.autoDismissSeconds` | `8` | Auto-close the toast after this many seconds; `0` keeps it until dismissed. |
 
 Signal files are written by a bash hook script — macOS and Linux out of the
 box, Windows via Git Bash (requires `python3` on PATH for signal writing).
